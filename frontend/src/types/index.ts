@@ -66,7 +66,7 @@ export interface SimulationResult {
   initial_failures: string[];
   waves: CascadeWave[];
   total_failed: number;
-  population_affected: number;
+  population_affected_estimate: number;
   global_efficiency_before: number;
   global_efficiency_after: number;
   status: "pending" | "running" | "completed" | "failed";
