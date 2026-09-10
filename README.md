@@ -4,333 +4,136 @@
 
 Built for **Manipal Hackathon 2026**
 **Track:** Disaster Resilience
-**Challenge:** *“Cascading Failure: When One Failure Becomes Many”*
+**Challenge:** *"Cascading Failure: When One Failure Becomes Many"*
 
 ---
 
-## Overview
+## Quick Start
 
-Cities run on interconnected systems.
+### Prerequisites
 
-Power feeds water pumps. Water and electricity keep hospitals running. Roads connect critical facilities. When one part of this network fails, the consequences can spread far beyond the original failure.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with Docker Compose v2)
+- [Node.js 20+](https://nodejs.org/) (for the frontend dev server)
 
-Most infrastructure monitoring tools look at individual systems in isolation. **Ripple** treats the city as one interconnected network, allowing users to visualize and understand how a single failure can cascade through multiple dependent services.
+### 1. Clone and configure
 
-With Ripple, you can:
-
-* Fail any infrastructure node with a click
-* Visualize how the failure propagates through the network
-* Estimate how many services and people are affected
-* Identify the infrastructure assets that are most critical
-* Test potential fixes and compare outcomes
-* Understand cascading failures through an interactive simulation
-
----
-
-## What It Does
-
-Ripple models a city as a **dependency graph**.
-
-Each infrastructure asset is represented as a node, while connections between nodes represent dependencies.
-
-For example:
-
-```text
-Power Substation
-       |
-       v
-Water Pump ------> Water Treatment
-       |
-       v
-    Hospital
+```bash
+git clone <repo-url>
+cd ripple
+cp .env.example .env
 ```
 
-If the power substation fails, the water pump may stop working. This can affect the water treatment system, which can then impact the hospital.
+### 2. Start the backend services
 
-Ripple simulates this chain reaction and shows how far the original failure can spread.
-
----
-
-## How It Works
-
-### 1. City as a Graph
-
-The city is represented as a graph:
-
-* **Nodes** — infrastructure assets
-* **Edges** — dependencies between assets
-
-Example node types include:
-
-* Power substations
-* Water stations
-* Hospitals
-* Roads
-* Critical facilities
-
----
-
-### 2. Failure Propagation
-
-When a user fails a node, Ripple traverses the dependency graph outward.
-
-A dependent node fails when it loses the support required to keep operating.
-
-The simulation follows a cascading process:
-
-```text
-Initial Failure
-      |
-      v
-Direct Dependencies
-      |
-      v
-Secondary Dependencies
-      |
-      v
-Tertiary Dependencies
-      |
-      v
-Cascading Failure
+```bash
+docker compose up --build
 ```
 
-The simulation continues until no additional infrastructure assets are affected.
+This starts:
+- **PostgreSQL 16 + PostGIS 3.4** on port 5432
+- **Neo4j 5.21.0 + GDS** on ports 7474 (browser) / 7687 (bolt)
+- **Redis 7.4** on port 6379
+- **FastAPI backend** on port 8000
+- **Celery worker** for async simulation jobs
 
----
+Wait for all health checks to pass (~30s for Neo4j's first startup).
 
-### 3. Impact Calculation
+### 3. Verify the backend
 
-Ripple tracks the impact of each scenario, including:
-
-* Number of failed infrastructure assets
-* Number of affected services
-* Approximate population affected
-* Overall extent of the cascading failure
-
-This makes it possible to compare different failure scenarios.
-
----
-
-### 4. Identifying Critical Assets
-
-Ripple can simulate the failure of each infrastructure node individually and measure how many other assets are affected.
-
-This allows the system to rank infrastructure based on its potential failure impact and identify critical weak points in the network.
-
-For example:
-
-```text
-Most Critical
-     |
-     v
-Power Substation A
-Water Station B
-Hospital C
-Road Junction D
-     |
-     v
-Least Critical
+```bash
+curl http://localhost:8000/health
+# → {"status":"ok","services":{"postgres":"ok","neo4j":"ok","redis":"ok"}}
 ```
 
-High-impact assets represent infrastructure that may require additional protection, redundancy, or monitoring.
+### 4. Start the frontend
 
----
-
-### 5. Testing Fixes
-
-Ripple allows users to test potential interventions.
-
-A user can modify the network, introduce additional support or redundancy, and run the same scenario again.
-
-The results can then be compared:
-
-```text
-WITHOUT FIX
-
-Failure
-   |
-   v
-Water
-   |
-   v
-Hospital
-   |
-   v
-Emergency Services
-
-High Impact
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-```text
-WITH FIX
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-Failure
-   |
-   v
-Backup Supply
-   |
-   v
-Water
-   |
-   v
-Hospital
+### 5. Access service UIs
 
-Reduced Impact
-```
-
-This demonstrates how resilience measures can reduce cascading failures.
-
----
-
-## Key Features
-
-| Feature               | Description                                                 |
-| --------------------- | ----------------------------------------------------------- |
-| Interactive Graph     | Explore the city's infrastructure dependency network        |
-| Failure Simulation    | Click a node to trigger a failure                           |
-| Cascade Visualization | Watch the failure spread through dependent systems          |
-| Impact Estimation     | Track services and approximate population affected          |
-| Criticality Ranking   | Identify infrastructure with the highest failure impact     |
-| Intervention Testing  | Add or test fixes and compare scenarios                     |
-| Optional Map Layer    | Visualize infrastructure geographically                     |
-| Scenario Summaries    | Generate short, readable explanations of simulation results |
+| Service | URL |
+|---------|-----|
+| Frontend | [localhost:5173](http://localhost:5173) |
+| Backend API docs | [localhost:8000/docs](http://localhost:8000/docs) |
+| Neo4j Browser | [localhost:7474](http://localhost:7474) |
 
 ---
 
 ## Architecture
 
 ```text
-                    +------------------+
-                    |    React UI      |
-                    |                  |
-                    |  Graph / Map     |
-                    +--------+---------+
-                             |
-                             | API
-                             v
-                    +------------------+
-                    |    Backend       |
-                    |                  |
-                    | Network +        |
-                    | Simulation API   |
-                    +--------+---------+
-                             |
-                             v
-                    +------------------+
-                    | Graph Simulation |
-                    |                  |
-                    | Traversal        |
-                    | Centrality       |
-                    | Impact Analysis  |
-                    +------------------+
+┌─────────────────────────────────────────────────────────┐
+│                     React Frontend                       │
+│  MapLibre GL + deck.gl  │  Cytoscape.js  │  Controls    │
+└────────────┬────────────┴───────┬────────┴──────────────┘
+             │ REST               │ WebSocket
+             ▼                    ▼
+┌─────────────────────────────────────────────────────────┐
+│                  FastAPI Backend                         │
+│  CRUD API  │  Simulation Trigger  │  WS Wave Stream     │
+└──────┬─────┴──────────┬───────────┴──────────┬──────────┘
+       │                │                      │
+       ▼                ▼                      ▼
+┌──────────┐   ┌────────────────┐      ┌────────────┐
+│ Postgres │   │  Celery Worker │      │   Redis    │
+│ + PostGIS│   │  (in-memory    │      │  (broker + │
+│          │   │   NetworkX     │      │   pubsub)  │
+└──────────┘   │   cascade)     │      └────────────┘
+               └───────┬────────┘
+                       │ read-only
+                       ▼
+               ┌────────────────┐
+               │     Neo4j      │
+               │  + GDS (graph  │
+               │   centrality)  │
+               └────────────────┘
 ```
 
----
-
-## Tech Stack (TBD)
-
-### Frontend
-
-* React
-* Cytoscape.js for interactive graph visualization
-* Optional map layer for geographic visualization
-
-### Backend
-
-A simple API responsible for:
-
-* Storing the infrastructure network
-* Running simulations
-* Processing failure propagation
-* Returning simulation and impact results
-
-### Graph Logic
-
-Ripple uses standard graph algorithms, including:
-
-* Graph traversal
-* Dependency propagation
-* Centrality analysis
-* Impact ranking
+> **Important:** Simulations never mutate Neo4j. The worker reads the graph into an in-memory NetworkX model, runs the cascade, and writes results to PostgreSQL only.
 
 ---
 
 ## Project Structure
 
-> Update this section once the final project structure is finalized.
-
-```text
+```
 ripple/
-├── frontend/
-│   ├── src/
-│   ├── public/
-│   └── package.json
-│
+├── docker-compose.yml          # All backend services
+├── .env.example                # Environment template
 ├── backend/
-│   ├── src/
-│   └── ...
-│
-├── data/
-│   └── sample-network/
-│
-├── README.md
-└── ...
+│   ├── app/
+│   │   ├── main.py             # FastAPI app
+│   │   ├── config.py           # Settings
+│   │   ├── celery_app.py       # Celery instance
+│   │   ├── db/                 # Database connectors
+│   │   ├── models/             # SQLAlchemy ORM
+│   │   ├── schemas/            # Pydantic schemas
+│   │   ├── api/                # REST + WebSocket routes
+│   │   ├── services/           # Business logic
+│   │   └── simulation/         # Cascade engine
+│   └── tests/
+├── frontend/
+│   └── src/
+│       ├── components/         # React components
+│       ├── layers/             # deck.gl layer defs
+│       ├── stores/             # Zustand state
+│       ├── api/                # TanStack Query hooks
+│       └── data/               # Stub data (Phase 0.5)
+└── data/
+    ├── seed/                   # GeoJSON seed dataset
+    └── scripts/                # Data generation
 ```
 
 ---
 
-## Running the Project
+## Key Metrics & Disclaimers
 
-> Setup instructions will be added once the project is fully configured.
-
-```bash
-# Clone the repository
-
-# Install dependencies
-
-# Start the backend
-
-# Start the frontend
-```
-
----
-
-## Data
-
-The sample network is **hand-built to represent a small city**.
-
-It is not based on real infrastructure data. The dataset is designed specifically to demonstrate how Ripple's cascading-failure simulation works.
-
----
-
-## Use Case
-
-Ripple is designed as a demonstration and decision-support concept for disaster resilience.
-
-Potential applications include:
-
-* Identifying critical infrastructure
-* Understanding infrastructure dependencies
-* Evaluating cascading failure risks
-* Testing redundancy and resilience strategies
-* Supporting disaster preparedness planning
-* Communicating complex infrastructure risks visually
-
----
-
-## Future Improvements
-
-Potential future improvements include:
-
-* Real-world infrastructure datasets
-* More detailed dependency rules
-* Probabilistic failure models
-* Real-time infrastructure data
-* Advanced geographic visualization
-* More sophisticated population-impact estimation
-* Multiple simultaneous failures
-* Recovery and restoration simulations
-* Automated resilience recommendations
+> **⚠️ Population "affected" metric:** The current implementation sums `population_served` across all failed nodes. This **double-counts** when failed nodes serve overlapping populations. This is acceptable for a demo/hackathon presentation but should not be quoted as a precise number.
 
 ---
 
