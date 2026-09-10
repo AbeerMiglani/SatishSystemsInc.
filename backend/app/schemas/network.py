@@ -1,0 +1,45 @@
+from pydantic import BaseModel, UUID4, ConfigDict
+from typing import List, Optional
+from datetime import datetime
+
+
+class NodeBase(BaseModel):
+    id: UUID4
+    name: str
+    node_type: str
+    lat: float
+    lng: float
+    capacity: float
+    current_load: float
+    failure_threshold: float
+    population_served: int
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EdgeBase(BaseModel):
+    id: UUID4
+    source_id: UUID4
+    target_id: UUID4
+    edge_type: str
+    weight: float
+    capacity: float
+    is_bidirectional: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NetworkBase(BaseModel):
+    id: UUID4
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CentralityScore(BaseModel):
+    node_id: UUID4
+    score: float
+    rank: int

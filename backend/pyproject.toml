@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ripple-backend"
+version = "0.1.0"
+description = "Ripple — Cascading Failure Simulation Platform (Backend)"
+requires-python = ">=3.11"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "websockets>=12,<14",
+    # Database — PostgreSQL + PostGIS
+    "sqlalchemy>=2.0,<3",
+    "geoalchemy2>=0.15,<1",
+    "psycopg2-binary>=2.9,<3",
+    # Database — Neo4j
+    "neo4j>=5.20,<6",
+    # Cache / broker
+    "redis>=5.0,<6",
+    # Task queue
+    "celery[redis]>=5.4,<6",
+    # Simulation engine
+    "networkx>=3.3,<4",
+    "numpy>=1.26,<3",
+    "scipy>=1.13,<2",
+    # Configuration
+    "pydantic-settings>=2.3,<3",
+    "alembic>=1.13,<2",
+    # Utilities
+    "orjson>=3.10,<4",
+    "shapely>=2.0,<3",
+    "geojson>=3.1,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.23,<1",
+    "httpx>=0.27,<1",
+    "ruff>=0.5,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -1,0 +1,135 @@
+import networkx as nx
+from app.simulation.cascade import run_cascade, calculate_global_efficiency
+
+
+def test_calculate_global_efficiency():
+    """Test global efficiency calculation for a simple 3-node graph."""
+    G = nx.DiGraph()
+    G.add_nodes_from(["A", "B", "C"])
+    # Disconnected graph
+    assert calculate_global_efficiency(G) == 0.0
+    
+    # Path graph A -> B -> C
+    G.add_edge("A", "B")
+    G.add_edge("B", "C")
+    # A->B = 1, B->C = 1, A->C = 2
+    # Paths: 3 out of 6 possible pairs
+    # E = (1/6) * (1/1 + 1/1 + 1/2) = (2.5) / 6 = 0.41666...
+    eff = calculate_global_efficiency(G)
+    assert abs(eff - 0.416666) < 0.001
+
+
+def test_motter_lai_uniform_cascade():
+    """
+    Test uniform load redistribution with a hand-computed graph.
+    A -> B -> C
+    A load 10, cap 15
+    B load 10, cap 12
+    C load 10, cap 15
+    
+    Wave 0: A fails.
+    Wave 1: A redistributes 10 load to B. 
+            B's new load = 20. B's capacity = 12. B fails.
+    Wave 2: B redistributes 20 load to C.
+            C's new load = 30. C's capacity = 15. C fails.
+    """
+    G = nx.DiGraph()
+    G.add_node("A", current_load=10.0, capacity=15.0, failure_threshold=1.0, population_served=100)
+    G.add_node("B", current_load=10.0, capacity=12.0, failure_threshold=1.0, population_served=100)
+    G.add_node("C", current_load=10.0, capacity=15.0, failure_threshold=1.0, population_served=100)
+    
+    G.add_edge("A", "B")
+    G.add_edge("B", "C")
+    
+    waves, eff_b, eff_a, pop = run_cascade(G, ["A"])
+    
+    assert len(waves) == 3
+    assert set(waves[0]["failed_node_ids"]) == {"A"}
+    assert set(waves[1]["failed_node_ids"]) == {"B"}
+    assert set(waves[2]["failed_node_ids"]) == {"C"}
+    assert pop == 300
+    assert eff_a == 0.0  # Fully disconnected
+
+
+def test_zero_neighbor_noop():
+    """
+    If a node fails and has no surviving neighbors, the load is just lost,
+    no zero-division error occurs.
+    """
+    G = nx.DiGraph()
+    G.add_node("A", current_load=100.0, capacity=150.0)
+    G.add_node("B", current_load=100.0, capacity=150.0) # B is isolated
+    
+    waves, _, _, _ = run_cascade(G, ["A"])
+    assert len(waves) == 1
+    assert set(waves[0]["failed_node_ids"]) == {"A"}
+    
+
+def test_directed_redistribution():
+    """
+    Test that load only distributes along OUT-edges.
+    A <- B -> C
+    If B fails, load goes to A and C.
+    If A fails, load does NOT go to B.
+    """
+    G = nx.DiGraph()
+    G.add_node("A", current_load=0.0, capacity=10.0)
+    G.add_node("B", current_load=10.0, capacity=20.0)
+    G.add_node("C", current_load=0.0, capacity=10.0)
+    
+    G.add_edge("B", "A")
+    G.add_edge("B", "C")
+    
+    # Failing A shouldn't affect B
+    waves_a, _, _, _ = run_cascade(G, ["A"])
+    assert len(waves_a) == 1
+    
+    # Failing B distributes 10/2 = 5 to A and C. 
+    # Current capacities are 10, so they don't fail.
+    waves_b, _, _, _ = run_cascade(G, ["B"])
+    assert len(waves_b) == 1  # Only B fails
+
+
+def test_far_node_survives_cascade():
+    """
+    Verify that the redistribution step only touches immediate successors of the failed node,
+    and a 'far' node survives an isolated local failure if the cascade stops before reaching it.
+    
+    Graph (10 nodes):
+    0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
+    
+    Node 0 fails.
+    Node 1 has tiny capacity, fails.
+    Node 2 has huge capacity, survives!
+    Nodes 3-9 should never receive load and survive.
+    """
+    G = nx.DiGraph()
+    for i in range(10):
+        # Default capacity 100, load 10
+        G.add_node(str(i), current_load=10.0, capacity=100.0, failure_threshold=1.0)
+        if i > 0:
+            G.add_edge(str(i-1), str(i))
+            
+    # Make Node 1 brittle
+    G.nodes["1"]["capacity"] = 15.0
+    # Make Node 2 a sink (huge capacity)
+    G.nodes["2"]["capacity"] = 9999.0
+    
+    # Fail Node 0
+    waves, _, _, _ = run_cascade(G, ["0"])
+    
+    # Wave 0: "0" fails, sends 10 load to "1"
+    # "1" new load = 10 + 10 = 20 > capacity (15) => "1" fails in Wave 1
+    # Wave 1: "1" fails, sends 20 load to "2"
+    # "2" new load = 10 + 20 = 30 < capacity (9999) => "2" survives!
+    
+    assert len(waves) == 2
+    assert set(waves[0]["failed_node_ids"]) == {"0"}
+    assert set(waves[1]["failed_node_ids"]) == {"1"}
+    
+    all_failed = set(waves[0]["failed_node_ids"]) | set(waves[1]["failed_node_ids"])
+    
+    # The 'far' nodes strictly survive
+    for i in range(2, 10):
+        assert str(i) not in all_failed
+
