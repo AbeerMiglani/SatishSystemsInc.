@@ -1,9 +1,9 @@
 """Small, explicit authentication and abuse-control boundary for the API."""
 
-from dataclasses import dataclass
 import hashlib
 import logging
 import secrets
+from dataclasses import dataclass
 
 from fastapi import HTTPException, Request, WebSocket, status
 

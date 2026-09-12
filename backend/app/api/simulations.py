@@ -1,15 +1,14 @@
 import logging
+import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, UUID4, ConfigDict, Field, field_validator
-from typing import List, Optional
-from datetime import datetime
-import uuid
 
-from app.db.postgres import get_db
 from app.config import settings
-from app.models.network import SimulationResult, Network, Node, Scenario
+from app.db.postgres import get_db
+from app.models.network import Network, Node, Scenario, SimulationResult
 from app.security import enforce_rate_limit, require_operator, require_viewer
 from app.simulation.runner import run_simulation_task
 
@@ -23,12 +22,12 @@ logger = logging.getLogger(__name__)
 
 class SimulationCreate(BaseModel):
     network_id: UUID4
-    initial_failures: List[UUID4] = Field(min_length=1, max_length=settings.max_initial_failures)
-    scenario_id: Optional[UUID4] = None
+    initial_failures: list[UUID4] = Field(min_length=1, max_length=settings.max_initial_failures)
+    scenario_id: UUID4 | None = None
 
     @field_validator("initial_failures")
     @classmethod
-    def initial_failures_must_be_unique(cls, values: List[UUID4]) -> List[UUID4]:
+    def initial_failures_must_be_unique(cls, values: list[UUID4]) -> list[UUID4]:
         if len(set(values)) != len(values):
             raise ValueError("initial_failures must not contain duplicates")
         return values
@@ -36,22 +35,22 @@ class SimulationCreate(BaseModel):
 
 class WaveSchema(BaseModel):
     wave: int
-    failed_node_ids: List[UUID4]
+    failed_node_ids: list[UUID4]
 
 
 class SimulationResponse(BaseModel):
     id: UUID4
     network_id: UUID4
     status: str
-    initial_failures: List[UUID4]
-    waves: List[WaveSchema]
+    initial_failures: list[UUID4]
+    waves: list[WaveSchema]
     total_failed: int
     population_affected_estimate: int
-    global_efficiency_before: Optional[float] = None
-    global_efficiency_after: Optional[float] = None
-    error_message: Optional[str] = None
+    global_efficiency_before: float | None = None
+    global_efficiency_after: float | None = None
+    error_message: str | None = None
     created_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,7 +71,7 @@ def create_simulation(
         str(node_id)
         for (node_id,) in db.query(Node.id).filter(Node.network_id == req.network_id).all()
     }
-    if missing_ids := requested_ids - known_ids:
+    if requested_ids - known_ids:
         raise HTTPException(status_code=422, detail="initial_failures contains nodes outside this network")
 
     if req.scenario_id:

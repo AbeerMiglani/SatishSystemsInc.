@@ -1,3 +1,3 @@
-from .network import Network, Node, Edge, Scenario, SimulationResult
+from .network import Edge, Network, Node, Scenario, SimulationResult
 
-__all__ = ["Network", "Node", "Edge", "Scenario", "SimulationResult"]
+__all__ = ["Edge", "Network", "Node", "Scenario", "SimulationResult"]

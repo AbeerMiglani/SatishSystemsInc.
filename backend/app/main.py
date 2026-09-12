@@ -4,23 +4,21 @@ Ripple — FastAPI Application.
 Entry point: uvicorn app.main:app --reload
 """
 
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import app.models  # Ensure models are registered before create_tables
+from app.api.networks import router as networks_router
+from app.api.scenarios import router as scenarios_router
+from app.api.simulations import router as simulations_router
+from app.api.ws import router as ws_router
 from app.config import settings
 from app.db.neo4j import close_neo4j_driver, verify_neo4j_connection
 from app.db.postgres import verify_postgres_connection
 from app.db.redis import verify_redis_connection
-import app.models  # Ensure models are registered before create_tables
-
-
-from app.api.networks import router as networks_router
-from app.api.simulations import router as simulations_router
-from app.api.scenarios import router as scenarios_router
-from app.api.ws import router as ws_router
 
 logger = logging.getLogger(__name__)
 

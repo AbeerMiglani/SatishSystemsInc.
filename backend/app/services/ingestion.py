@@ -7,11 +7,12 @@ and then syncs to Neo4j.
 import json
 import logging
 from pathlib import Path
+
 from sqlalchemy.orm import Session
 
-from app.models.network import Network, Node, Edge
-from app.services.graph_sync import clear_network_from_neo4j, sync_network_to_neo4j
 from app.db.redis import get_redis_client
+from app.models.network import Edge, Network, Node
+from app.services.graph_sync import clear_network_from_neo4j, sync_network_to_neo4j
 
 # In Docker, the data directory is mounted at /data
 SEED_DIR = Path("/data/seed")
@@ -110,6 +111,7 @@ def ingest_seed_data(db: Session, force: bool = False) -> str:
 
 if __name__ == "__main__":
     import argparse
+
     from app.db.postgres import SessionLocal
 
     parser = argparse.ArgumentParser(description="Ingest the synthetic Ripple seed network")
