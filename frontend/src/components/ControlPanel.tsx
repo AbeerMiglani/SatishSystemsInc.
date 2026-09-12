@@ -16,6 +16,7 @@ const ControlPanel: React.FC = () => {
   const clearRedundancyNodes = useUIStore((s) => s.clearRedundancyNodes);
 
   const { result, currentWave, isPlaying, play, pause, reset, setWave, setSimulationResult } = useSimulationStore();
+  const [dismissedSimulationIds, setDismissedSimulationIds] = useState<Set<string>>(new Set());
   
   const simMutation = useRunSimulation();
   const createScenarioMutation = useCreateScenario();
@@ -24,11 +25,11 @@ const ControlPanel: React.FC = () => {
 
   useEffect(() => {
     if (polledResult && polledResult.status === "completed") {
-      if (!result || result.id !== polledResult.id) {
+      if (!dismissedSimulationIds.has(polledResult.id) && (!result || result.id !== polledResult.id)) {
         setSimulationResult(polledResult);
       }
     }
-  }, [polledResult, result, setSimulationResult]);
+  }, [polledResult, result, dismissedSimulationIds, setSimulationResult]);
 
   const handleRunBaseline = () => {
     if (!networkId || selectedNodeIds.size === 0) return;
@@ -72,24 +73,35 @@ const ControlPanel: React.FC = () => {
   };
 
   const handleApplyRecommendation = async (payload: Modification) => {
-    if (!networkId || selectedNodeIds.size === 0) return;
+    if (!result || result.status !== "completed") return;
     try {
       const scenario = await createScenarioMutation.mutateAsync({
-        network_id: networkId,
+        network_id: result.network_id,
         name: "Recommended capacity upgrade",
         description: "Verified recommendation applied as an upgrade scenario.",
         modifications: [payload],
-        initial_failures: Array.from(selectedNodeIds),
+        initial_failures: result.initial_failures,
       });
       simMutation.mutate({
-        network_id: networkId,
-        initial_failures: Array.from(selectedNodeIds),
+        network_id: result.network_id,
+        initial_failures: result.initial_failures,
         scenario_id: scenario.id,
       });
     } catch (error) {
       console.error(error);
       alert(`Failed to apply recommendation: ${(error as Error).message}`);
     }
+  };
+
+  const handleResetTimeline = () => {
+    if (result?.status === "completed") {
+      setDismissedSimulationIds((prev) => {
+        const next = new Set(prev);
+        next.add(result.id);
+        return next;
+      });
+    }
+    reset();
   };
 
   const isRunning = simMutation.isPending || (polledResult && polledResult.status !== "completed" && polledResult.status !== "failed");
@@ -194,7 +206,7 @@ const ControlPanel: React.FC = () => {
           currentWave={currentWave}
           isPlaying={isPlaying}
           onPlayPause={isPlaying ? pause : play}
-          onReset={reset}
+          onReset={handleResetTimeline}
           onWaveChange={setWave}
         />
       )}

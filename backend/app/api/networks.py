@@ -60,8 +60,9 @@ def get_centrality(
     db: Session = Depends(get_db),
 ):
     """
-    Calculate and return PageRank centrality scores for all nodes in the network
-    using Neo4j Graph Data Science.
+    Calculate and return centrality scores for all nodes in the network.
+    The default metric is weighted betweenness; PageRank is also available via
+    `metric=pagerank`.
     """
     # Verify network exists
     net = db.query(Network).filter(Network.id == network_id).first()

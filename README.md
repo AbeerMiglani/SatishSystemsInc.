@@ -138,7 +138,7 @@ ripple/
 API responses retain `id` as the canonical UUID and expose human-readable
 `display_name` values additively where available. Display names are never
 primary keys or deduplication keys. Synthetic assets use deterministic labels
-such as `Road Junction 001` and `Hospital Demo 01`; the current seed data does
+such as `Junction 1` and `Hospital 1`; the current seed data does
 not claim real institution names.
 
 Data provenance uses:
@@ -227,7 +227,9 @@ comply with OpenStreetMap's ODbL and usage policies.
 This simulator does not provide engineering-grade failure prediction. Traffic
 demand figures are not derived from OSM or another real-world traffic source.
 Synthetic assets do not represent real institutions; names such as
-`Hospital Demo 01` are placeholders only.
+`Hospital 1` are placeholders only. The frontend map requests OpenStreetMap
+tile data at runtime, while the synthetic backend dataset and simulation logic
+remain available without OSM ingestion.
 
 ---
 

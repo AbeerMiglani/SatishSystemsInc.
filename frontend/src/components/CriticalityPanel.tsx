@@ -18,10 +18,11 @@ const CriticalityPanel: React.FC = () => {
   // Take top 10
   const top10 = scores.slice(0, 10);
   const maxScore = top10.length > 0 ? top10[0].score : 1;
+  const metricLabel = top10[0]?.metric === "pagerank" ? "PageRank" : "Betweenness";
 
   return (
     <div style={{ padding: 16, borderTop: "1px solid #334155" }}>
-      <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600 }}>Top Critical Nodes (PageRank)</h3>
+      <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600 }}>Top Critical Nodes ({metricLabel})</h3>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {top10.map((s, i) => {
           const isSelected = selectedNodeIds.has(s.node_id);
