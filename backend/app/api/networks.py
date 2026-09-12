@@ -1,15 +1,14 @@
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
-import uuid
 
 from app.db.postgres import get_db
-from app.models.network import Network, Node, Edge
-from app.schemas.network import NetworkBase, NodeBase, EdgeBase, CentralityScore
-from app.services.analytics import calculate_centrality
+from app.models.network import Edge, Network, Node
+from app.schemas.network import CentralityScore, EdgeBase, NetworkBase, NodeBase
 from app.security import enforce_rate_limit, require_viewer
+from app.services.analytics import calculate_centrality
 
 router = APIRouter(
     prefix="/networks",
@@ -19,13 +18,13 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
-@router.get("", response_model=List[NetworkBase])
+@router.get("", response_model=list[NetworkBase])
 def list_networks(limit: int = Query(default=100, ge=1, le=1_000), db: Session = Depends(get_db)):
     """List all available infrastructure networks."""
     return db.query(Network).order_by(Network.created_at.desc()).limit(limit).all()
 
 
-@router.get("/{network_id}/nodes", response_model=List[NodeBase])
+@router.get("/{network_id}/nodes", response_model=list[NodeBase])
 def get_nodes(
     network_id: uuid.UUID,
     limit: int = Query(default=5_000, ge=1, le=10_000),
@@ -41,7 +40,7 @@ def get_nodes(
     return nodes
 
 
-@router.get("/{network_id}/edges", response_model=List[EdgeBase])
+@router.get("/{network_id}/edges", response_model=list[EdgeBase])
 def get_edges(
     network_id: uuid.UUID,
     limit: int = Query(default=10_000, ge=1, le=20_000),
@@ -54,7 +53,7 @@ def get_edges(
     return db.query(Edge).filter(Edge.network_id == network_id).limit(limit).all()
 
 
-@router.get("/{network_id}/centrality", response_model=List[CentralityScore])
+@router.get("/{network_id}/centrality", response_model=list[CentralityScore])
 def get_centrality(network_id: uuid.UUID, db: Session = Depends(get_db)):
     """
     Calculate and return PageRank centrality scores for all nodes in the network

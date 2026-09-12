@@ -11,11 +11,10 @@ Relationships:
 - depends_on → :DEPENDS_ON
 """
 
-from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 
-from app.models.network import Node, Edge
 from app.db.neo4j import neo4j_session
+from app.models.network import Edge, Node
 
 
 def clear_network_from_neo4j(network_id: str) -> None:

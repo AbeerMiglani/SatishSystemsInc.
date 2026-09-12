@@ -5,7 +5,7 @@ Analytics service using Neo4j Graph Data Science (GDS).
 import json
 import logging
 import uuid
-from typing import List, Dict, Any
+from typing import Any
 
 from app.config import settings
 from app.db.neo4j import neo4j_session
@@ -14,7 +14,7 @@ from app.db.redis import get_redis_client
 logger = logging.getLogger(__name__)
 
 
-def calculate_centrality(network_id: str) -> List[Dict[str, Any]]:
+def calculate_centrality(network_id: str) -> list[dict[str, Any]]:
     """
     Calculates PageRank centrality for nodes in a specific network using Neo4j GDS.
     Uses cypher projection to isolate the network, runs PageRank, and cleans up.
@@ -33,7 +33,7 @@ def calculate_centrality(network_id: str) -> List[Dict[str, Any]]:
     # finally block prevents GDS memory leaks when PageRank fails.
     graph_name = f"network_{network_id.replace('-', '_')}_{uuid.uuid4().hex}"
     graph_created = False
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
 
     with neo4j_session(write=True) as session:
         try:

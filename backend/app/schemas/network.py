@@ -1,6 +1,6 @@
-from pydantic import BaseModel, UUID4, ConfigDict
-from typing import List, Optional
 from datetime import datetime
+
+from pydantic import UUID4, BaseModel, ConfigDict
 
 
 class NodeBase(BaseModel):
@@ -33,7 +33,7 @@ class EdgeBase(BaseModel):
 class NetworkBase(BaseModel):
     id: UUID4
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

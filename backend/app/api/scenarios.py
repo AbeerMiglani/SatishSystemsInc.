@@ -1,16 +1,15 @@
+import uuid
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, UUID4, ConfigDict, Field, field_validator, model_validator
-from typing import List, Optional
-import uuid
-from datetime import datetime
 
-from app.db.postgres import get_db
-from app.config import settings
-from app.models.network import Scenario, SimulationResult, Network, Node
 from app.api.simulations import SimulationResponse
+from app.config import settings
+from app.db.postgres import get_db
+from app.models.network import Network, Node, Scenario, SimulationResult
 from app.security import enforce_rate_limit, require_operator, require_viewer
 
 router = APIRouter(
@@ -38,15 +37,15 @@ class AddEdgeModification(BaseModel):
 class ScenarioCreate(BaseModel):
     network_id: UUID4
     name: str = Field(min_length=1, max_length=120)
-    description: Optional[str] = Field(default=None, max_length=2_000)
-    modifications: List[AddEdgeModification] = Field(
+    description: str | None = Field(default=None, max_length=2_000)
+    modifications: list[AddEdgeModification] = Field(
         min_length=1, max_length=settings.max_scenario_modifications
     )
-    initial_failures: List[UUID4] = Field(min_length=1, max_length=settings.max_initial_failures)
+    initial_failures: list[UUID4] = Field(min_length=1, max_length=settings.max_initial_failures)
 
     @field_validator("initial_failures")
     @classmethod
-    def initial_failures_must_be_unique(cls, values: List[UUID4]) -> List[UUID4]:
+    def initial_failures_must_be_unique(cls, values: list[UUID4]) -> list[UUID4]:
         if len(set(values)) != len(values):
             raise ValueError("initial_failures must not contain duplicates")
         return values
@@ -55,10 +54,10 @@ class ScenarioResponse(BaseModel):
     id: UUID4
     network_id: UUID4
     name: str
-    description: Optional[str]
-    modifications: List[AddEdgeModification]
-    initial_failures: List[UUID4]
-    cached_result_id: Optional[UUID4]
+    description: str | None
+    modifications: list[AddEdgeModification]
+    initial_failures: list[UUID4]
+    cached_result_id: UUID4 | None
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)

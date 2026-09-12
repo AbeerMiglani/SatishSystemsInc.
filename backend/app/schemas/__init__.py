@@ -1,3 +1,3 @@
-from .network import NodeBase, EdgeBase, NetworkBase, CentralityScore
+from .network import CentralityScore, EdgeBase, NetworkBase, NodeBase
 
-__all__ = ["NodeBase", "EdgeBase", "NetworkBase", "CentralityScore"]
+__all__ = ["CentralityScore", "EdgeBase", "NetworkBase", "NodeBase"]
