@@ -47,7 +47,7 @@ scenario = request(f"{BASE_URL}/scenarios", method="POST", data={
         "type": "add_edge",
         "source": node_a,
         "target": node_b,
-        "edge_type": "power_line",
+        "edge_type": "power_supply",
         "is_bidirectional": True
     }],
     "initial_failures": [node_a]
@@ -76,5 +76,5 @@ compare = request(f"{BASE_URL}/scenarios/compare/{base_sim_id}/{scenario_id}")
 b_res = compare["baseline_result"]
 s_res = compare["scenario_result"]
 
-print(f"Baseline -> Failed: {b_res['total_failed']}, Pop Affected: {b_res['population_affected']}, Waves: {len(b_res['waves'])}")
-print(f"Scenario -> Failed: {s_res['total_failed']}, Pop Affected: {s_res['population_affected']}, Waves: {len(s_res['waves'])}")
+print(f"Baseline -> Failed: {b_res['total_failed']}, Pop Affected: {b_res['population_affected_estimate']}, Waves: {len(b_res['waves'])}")
+print(f"Scenario -> Failed: {s_res['total_failed']}, Pop Affected: {s_res['population_affected_estimate']}, Waves: {len(s_res['waves'])}")

@@ -82,9 +82,13 @@ export interface CentralityScore {
 // Scenario
 // ---------------------------------------------------------------------------
 export interface Modification {
-  action: "add_edge" | "remove_edge" | "add_node" | "remove_node" | "update_node";
-  target_id: string;
-  data: Record<string, unknown>;
+  type: "add_edge";
+  source: string;
+  target: string;
+  edge_type: EdgeType;
+  weight?: number;
+  capacity?: number;
+  is_bidirectional?: boolean;
 }
 
 export interface Scenario {
