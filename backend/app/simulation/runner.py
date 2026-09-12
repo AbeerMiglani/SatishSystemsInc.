@@ -1,14 +1,14 @@
-import networkx as nx
 import json
 import logging
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
+
+import networkx as nx
 from celery import shared_task
-from typing import List, Optional
-from datetime import datetime, timezone
+from sqlalchemy.orm import Session
 
 from app.db.postgres import SessionLocal
 from app.db.redis import get_redis_client
-from app.models.network import Node, Edge, SimulationResult, Scenario
+from app.models.network import Edge, Node, Scenario, SimulationResult
 from app.simulation.cascade import run_cascade
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,8 @@ def run_simulation_task(
     self, 
     simulation_id: str, 
     network_id: str, 
-    initial_failures: List[str],
-    scenario_id: Optional[str] = None
+    initial_failures: list[str],
+    scenario_id: str | None = None
 ):
     """
     Background Celery task to run the cascade simulation.
@@ -60,6 +60,7 @@ def run_simulation_task(
                 G.add_edge(tgt, src, weight=e.weight, capacity=e.capacity, edge_type=e.edge_type)
                 
         # 3. Apply Scenario Modifications if present
+        scenario = None
         if scenario_id:
             scenario = db.query(Scenario).filter(Scenario.id == scenario_id).first()
             if not scenario or str(scenario.network_id) != network_id:
@@ -102,7 +103,7 @@ def run_simulation_task(
         sim.global_efficiency_before = eff_before
         sim.global_efficiency_after = eff_after
         sim.status = "completed"
-        sim.completed_at = datetime.now(timezone.utc)
+        sim.completed_at = datetime.now(UTC)
         
         # If part of a scenario, link the result back to the scenario
         if scenario_id and scenario:

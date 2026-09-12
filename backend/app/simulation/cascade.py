@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
 import networkx as nx
-from typing import Callable, List, Dict, Any, Tuple
 
 
-def calculate_global_efficiency(G: nx.DiGraph, N_baseline: int = None) -> float:
+def calculate_global_efficiency(G: nx.DiGraph, N_baseline: int | None = None) -> float:
     """
     Calculates the global efficiency of the graph.
     Formula: E = (1 / (N*(N-1))) * sum(1 / d(i,j)) for all i != j
@@ -28,10 +32,10 @@ def calculate_global_efficiency(G: nx.DiGraph, N_baseline: int = None) -> float:
 
 def run_cascade(
     G_baseline: nx.DiGraph, 
-    initial_failures: List[str], 
+    initial_failures: list[str], 
     max_waves: int = 50,
-    on_wave_completed: Callable[[Dict[str, Any]], None] | None = None,
-) -> Tuple[List[Dict[str, Any]], float, float, int]:
+    on_wave_completed: Callable[[dict[str, Any]], None] | None = None,
+) -> tuple[list[dict[str, Any]], float, float, int]:
     """
     Runs the Motter-Lai uniform load redistribution cascade algorithm in-memory.
     """
