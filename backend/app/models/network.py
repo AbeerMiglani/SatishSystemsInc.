@@ -4,23 +4,24 @@ Uses GeoAlchemy2 for PostGIS geometries.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from geoalchemy2 import Geometry
 from sqlalchemy import (
-    Column,
-    String,
-    Float,
-    Integer,
+    JSON,
     Boolean,
-    ForeignKey,
+    CheckConstraint,
+    Column,
     DateTime,
     Enum,
-    JSON,
-    CheckConstraint,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
-from geoalchemy2 import Geometry
 
 from app.db.postgres import Base
 
@@ -32,7 +33,7 @@ class Network(Base):
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 
     nodes = relationship("Node", back_populates="network", cascade="all, delete-orphan")
     edges = relationship("Edge", back_populates="network", cascade="all, delete-orphan")
@@ -126,13 +127,13 @@ class Scenario(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     
-    # JSON list of dicts: {"action": "add_edge", "target_id": "uuid", "data": {...}}
+    # JSON list of dicts: {"type": "add_edge", "source": "uuid", "target": "uuid", ...}
     modifications = Column(JSON, nullable=False, default=list)
     # JSON list of initial failed node UUID strings
     initial_failures = Column(JSON, nullable=False, default=list)
     
     cached_result_id = Column(PG_UUID(as_uuid=True), ForeignKey("simulation_results.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 
     network = relationship("Network", back_populates="scenarios")
     result = relationship("SimulationResult", foreign_keys=[cached_result_id])
@@ -162,5 +163,5 @@ class SimulationResult(Base):
     global_efficiency_after = Column(Float, nullable=True)
     
     error_message = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False, index=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)

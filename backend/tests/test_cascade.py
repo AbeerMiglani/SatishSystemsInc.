@@ -1,5 +1,6 @@
 import networkx as nx
-from app.simulation.cascade import run_cascade, calculate_global_efficiency
+
+from app.simulation.cascade import calculate_global_efficiency, run_cascade
 
 
 def test_calculate_global_efficiency():
@@ -41,7 +42,7 @@ def test_motter_lai_uniform_cascade():
     G.add_edge("A", "B")
     G.add_edge("B", "C")
     
-    waves, eff_b, eff_a, pop = run_cascade(G, ["A"])
+    waves, _eff_b, eff_a, pop = run_cascade(G, ["A"])
     
     assert len(waves) == 3
     assert set(waves[0]["failed_node_ids"]) == {"A"}
