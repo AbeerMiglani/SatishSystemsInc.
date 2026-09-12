@@ -54,7 +54,7 @@ const CriticalityPanel: React.FC = () => {
               }} />
               
               <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-                <span>#{i + 1} {s.node_id.split('-')[0]}</span>
+                <span>#{i + 1} {s.display_name || s.node_id.split('-')[0]}</span>
                 <span style={{ color: "#f59e0b", fontWeight: "bold" }}>{s.score.toFixed(2)}</span>
               </div>
             </div>

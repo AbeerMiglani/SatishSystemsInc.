@@ -17,6 +17,7 @@ export type NodeStatus = "operational" | "degraded" | "failed";
 export interface InfraNode {
   id: string;
   name: string;
+  display_name?: string;
   node_type: NodeType;
   lat: number;
   lng: number;
@@ -57,7 +58,12 @@ export interface Network {
 // ---------------------------------------------------------------------------
 export interface CascadeWave {
   wave: number;
+  simulated_minute?: number;
   failed_node_ids: string[];
+  cumulative_failed_count?: number;
+  population_affected_estimate?: number;
+  hospital_count_operational?: number;
+  hospital_count_failed?: number;
 }
 
 export interface SimulationResult {
@@ -67,13 +73,30 @@ export interface SimulationResult {
   waves: CascadeWave[];
   total_failed: number;
   population_affected_estimate: number;
+  population_total?: number;
+  population_affected_percentage?: number;
+  population_overlap_unresolved?: boolean;
+  population_estimate_is_capped?: boolean;
+  population_impact_method?: string;
   global_efficiency_before: number;
   global_efficiency_after: number;
   status: "pending" | "running" | "completed" | "failed";
 }
 
+export interface Recommendation {
+  candidate_id: string;
+  candidate_display_name: string;
+  scenario_payload: Modification;
+  failures_prevented: number;
+  population_saved: number;
+  efficiency_gain: number;
+  verified: boolean;
+}
+
 export interface CentralityScore {
   node_id: string;
+  display_name?: string;
+  metric?: "betweenness" | "pagerank";
   score: number;
   rank: number;
 }
@@ -82,12 +105,18 @@ export interface CentralityScore {
 // Scenario
 // ---------------------------------------------------------------------------
 export interface Modification {
-  type: "add_edge";
-  source: string;
-  target: string;
-  edge_type: EdgeType;
+  type: "add_edge" | "upgrade_node";
+  source?: string;
+  target?: string;
+  node_id?: string;
+  edge_type?: EdgeType;
   weight?: number;
   capacity?: number;
+  capacity_multiplier?: number;
+  capacity_add?: number;
+  failure_threshold?: number;
+  failure_threshold_multiplier?: number;
+  failure_threshold_add?: number;
   is_bidirectional?: boolean;
 }
 

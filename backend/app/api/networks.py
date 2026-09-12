@@ -8,7 +8,7 @@ from app.db.postgres import get_db
 from app.models.network import Edge, Network, Node
 from app.schemas.network import CentralityScore, EdgeBase, NetworkBase, NodeBase
 from app.security import enforce_rate_limit, require_viewer
-from app.services.analytics import calculate_centrality
+from app.services.analytics import calculate_centrality, calculate_networkx_centrality
 
 router = APIRouter(
     prefix="/networks",
@@ -54,7 +54,11 @@ def get_edges(
 
 
 @router.get("/{network_id}/centrality", response_model=list[CentralityScore])
-def get_centrality(network_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_centrality(
+    network_id: uuid.UUID,
+    metric: str = Query(default="betweenness", pattern="^(betweenness|pagerank)$"),
+    db: Session = Depends(get_db),
+):
     """
     Calculate and return PageRank centrality scores for all nodes in the network
     using Neo4j Graph Data Science.
@@ -65,8 +69,10 @@ def get_centrality(network_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Network not found")
         
     try:
-        results = calculate_centrality(str(network_id))
+        results = calculate_centrality(str(network_id), metric=metric)
         return results
     except Exception:
-        logger.exception("centrality calculation failed for network %s", network_id)
-        raise HTTPException(status_code=503, detail="Centrality service unavailable")
+        logger.warning("GDS centrality unavailable; using NetworkX fallback", exc_info=True)
+        nodes = db.query(Node).filter(Node.network_id == network_id).all()
+        edges = db.query(Edge).filter(Edge.network_id == network_id).all()
+        return calculate_networkx_centrality(nodes, edges, metric=metric)

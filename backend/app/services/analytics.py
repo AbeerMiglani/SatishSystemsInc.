@@ -7,6 +7,8 @@ import logging
 import uuid
 from typing import Any
 
+import networkx as nx
+
 from app.config import settings
 from app.db.neo4j import neo4j_session
 from app.db.redis import get_redis_client
@@ -14,13 +16,16 @@ from app.db.redis import get_redis_client
 logger = logging.getLogger(__name__)
 
 
-def calculate_centrality(network_id: str) -> list[dict[str, Any]]:
+def calculate_centrality(network_id: str, metric: str = "betweenness") -> list[dict[str, Any]]:
     """
-    Calculates PageRank centrality for nodes in a specific network using Neo4j GDS.
-    Uses cypher projection to isolate the network, runs PageRank, and cleans up.
+    Calculates centrality for nodes in a specific network using Neo4j GDS.
+    Uses cypher projection to isolate the network, runs the selected metric,
+    and cleans up.
     Returns a sorted list of dictionaries with node_id, score, and rank.
     """
-    cache_key = f"centrality:{network_id}"
+    if metric not in {"betweenness", "pagerank"}:
+        raise ValueError("unsupported centrality metric")
+    cache_key = f"centrality:{metric}:{network_id}"
     if settings.centrality_cache_ttl_seconds:
         try:
             cached = get_redis_client().get(cache_key)
@@ -43,7 +48,7 @@ def calculate_centrality(network_id: str) -> list[dict[str, Any]]:
             node_query = "MATCH (n:Asset {network_id: $network_id}) RETURN id(n) AS id"
             rel_query = """
             MATCH (s:Asset {network_id: $network_id})-[r]->(t:Asset {network_id: $network_id})
-            RETURN id(s) AS source, id(t) AS target
+            RETURN id(s) AS source, id(t) AS target, coalesce(r.weight, 1.0) AS weight
             """
 
             session.run(
@@ -62,16 +67,26 @@ def calculate_centrality(network_id: str) -> list[dict[str, Any]]:
             )
             graph_created = True
 
-            # Run PageRank on the isolated projection.
-            results = session.run(
-                """
-                CALL gds.pageRank.stream($graph_name)
-                YIELD nodeId, score
-                RETURN gds.util.asNode(nodeId).id AS node_id, score
-                ORDER BY score DESC
-                """,
-                graph_name=graph_name,
-            ).data()
+            if metric == "betweenness":
+                results = session.run(
+                    """
+                    CALL gds.betweenness.stream($graph_name)
+                    YIELD nodeId, score
+                    RETURN gds.util.asNode(nodeId).id AS node_id, score
+                    ORDER BY score DESC
+                    """,
+                    graph_name=graph_name,
+                ).data()
+            else:
+                results = session.run(
+                    """
+                    CALL gds.pageRank.stream($graph_name)
+                    YIELD nodeId, score
+                    RETURN gds.util.asNode(nodeId).id AS node_id, score
+                    ORDER BY score DESC
+                    """,
+                    graph_name=graph_name,
+                ).data()
         finally:
             if graph_created:
                 try:
@@ -84,6 +99,7 @@ def calculate_centrality(network_id: str) -> list[dict[str, Any]]:
     for idx, row in enumerate(results):
         ranked_results.append({
             "node_id": row["node_id"],
+            "metric": metric,
             "score": row["score"],
             "rank": idx + 1,
         })
@@ -99,3 +115,32 @@ def calculate_centrality(network_id: str) -> list[dict[str, Any]]:
             logger.warning("centrality cache write failed", exc_info=True)
 
     return ranked_results
+
+
+def calculate_networkx_centrality(
+    nodes: list[Any], edges: list[Any], metric: str = "betweenness"
+) -> list[dict[str, Any]]:
+    """Deterministic fallback when Neo4j/GDS is unavailable."""
+    graph = nx.Graph()
+    graph.add_nodes_from(str(node.id) for node in nodes)
+    for edge in edges:
+        graph.add_edge(str(edge.source_id), str(edge.target_id), weight=edge.weight)
+    if metric == "betweenness":
+        scores = nx.betweenness_centrality(graph, weight="weight", normalized=True)
+    elif metric == "pagerank":
+        scores = nx.pagerank(graph, weight="weight")
+    else:
+        raise ValueError("unsupported centrality metric")
+    names = {str(node.id): node.display_name for node in nodes}
+    return [
+        {
+            "node_id": node_id,
+            "display_name": names.get(node_id),
+            "metric": metric,
+            "score": score,
+            "rank": rank,
+        }
+        for rank, (node_id, score) in enumerate(
+            sorted(scores.items(), key=lambda item: (-item[1], item[0])), start=1
+        )
+    ]

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -34,11 +34,25 @@ class AddEdgeModification(BaseModel):
             raise ValueError("scenario edge endpoints must differ")
         return self
 
+
+class UpgradeNodeModification(BaseModel):
+    type: Literal["upgrade_node"]
+    node_id: UUID4
+    capacity_multiplier: float = Field(default=1.0, ge=1.0, le=3.0)
+    failure_threshold_multiplier: float = Field(default=1.0, ge=1.0, le=2.0)
+    capacity: float | None = Field(default=None, gt=0, le=1_000_000)
+    capacity_add: float | None = Field(default=None, ge=0, le=1_000_000)
+    failure_threshold: float | None = Field(default=None, gt=0, le=100.0)
+    failure_threshold_add: float | None = Field(default=None, ge=0, le=100.0)
+
+
+Modification = Annotated[AddEdgeModification | UpgradeNodeModification, Field(discriminator="type")]
+
 class ScenarioCreate(BaseModel):
     network_id: UUID4
     name: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=2_000)
-    modifications: list[AddEdgeModification] = Field(
+    modifications: list[Modification] = Field(
         min_length=1, max_length=settings.max_scenario_modifications
     )
     initial_failures: list[UUID4] = Field(min_length=1, max_length=settings.max_initial_failures)
@@ -55,7 +69,7 @@ class ScenarioResponse(BaseModel):
     network_id: UUID4
     name: str
     description: str | None
-    modifications: list[AddEdgeModification]
+    modifications: list[Modification]
     initial_failures: list[UUID4]
     cached_result_id: UUID4 | None
     created_at: datetime
@@ -83,7 +97,10 @@ def create_scenario(
     }
     referenced_ids = {str(node_id) for node_id in req.initial_failures}
     for modification in req.modifications:
-        referenced_ids.update({str(modification.source), str(modification.target)})
+        if isinstance(modification, AddEdgeModification):
+            referenced_ids.update({str(modification.source), str(modification.target)})
+        else:
+            referenced_ids.add(str(modification.node_id))
     if referenced_ids - known_ids:
         raise HTTPException(status_code=422, detail="Scenario references nodes outside this network")
 
