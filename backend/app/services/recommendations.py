@@ -29,6 +29,39 @@ def build_graph(nodes: list[Node], edges: list[Edge]) -> nx.DiGraph:
     return graph
 
 
+def apply_modifications(graph: nx.DiGraph, modifications: list[dict[str, object]]) -> None:
+    for mod in modifications:
+        mod_type = mod.get("type")
+        if mod_type == "add_edge":
+            source = str(mod["source"])
+            target = str(mod["target"])
+            attrs = {
+                "weight": float(mod.get("weight", 1.0)),
+                "capacity": float(mod.get("capacity", 100.0)),
+                "edge_type": str(mod.get("edge_type", "depends_on")),
+            }
+            graph.add_edge(source, target, **attrs)
+            if bool(mod.get("is_bidirectional", False)):
+                graph.add_edge(target, source, **attrs)
+        elif mod_type == "upgrade_node":
+            node_id = str(mod["node_id"])
+            if node_id not in graph:
+                continue
+            node = graph.nodes[node_id]
+            base_capacity = float(node.get("capacity", 0.0))
+            base_threshold = float(node.get("failure_threshold", 1.0))
+            node["capacity"] = (
+                float(mod["capacity"])
+                if mod.get("capacity") is not None
+                else base_capacity + float(mod.get("capacity_add", 0.0))
+            ) * float(mod.get("capacity_multiplier", 1.0))
+            node["failure_threshold"] = (
+                float(mod["failure_threshold"])
+                if mod.get("failure_threshold") is not None
+                else base_threshold + float(mod.get("failure_threshold_add", 0.0))
+            ) * float(mod.get("failure_threshold_multiplier", 1.0))
+
+
 def evaluate_recommendation(
     graph: nx.DiGraph,
     initial_failures: list[str],
@@ -62,19 +95,34 @@ def evaluate_recommendation(
 
 
 def recommend_interventions(
-    result: SimulationResult, nodes: list[Node], edges: list[Edge]
+    result: SimulationResult,
+    nodes: list[Node],
+    edges: list[Edge],
+    scenario_modifications: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     if result.status != "completed":
         return []
     graph = build_graph(nodes, edges)
+    if scenario_modifications:
+        apply_modifications(graph, scenario_modifications)
     wave_one = result.waves[1]["failed_node_ids"] if len(result.waves) > 1 else []
-    candidates = list(dict.fromkeys(wave_one + result.initial_failures))
+    initial_failure_set = set(result.initial_failures)
+    candidates = [
+        candidate_id
+        for candidate_id in dict.fromkeys(wave_one)
+        if candidate_id not in initial_failure_set
+    ]
     for node in nodes:
-        if node.node_type == "road_junction" and str(node.id) not in candidates:
-            candidates.append(str(node.id))
+        node_id = str(node.id)
+        if (
+            node.node_type == "road_junction"
+            and node_id not in candidates
+            and node_id not in initial_failure_set
+        ):
+            candidates.append(node_id)
     names = {str(node.id): node.display_name for node in nodes}
     recommendations = []
-    for candidate in candidates[:10]:
+    for candidate in candidates:
         if candidate not in graph:
             continue
         item = evaluate_recommendation(graph, result.initial_failures, candidate, result)
@@ -88,4 +136,4 @@ def recommend_interventions(
             str(item["candidate_id"]),
         )
     )
-    return recommendations
+    return recommendations[:10]

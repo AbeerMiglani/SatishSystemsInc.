@@ -1,6 +1,6 @@
 # Ripple seed data
 
-The seed files describe a deterministic synthetic infrastructure network
+The seed files describe a synthetic infrastructure network
 positioned at real Manipal, India coordinates. The coordinates make the demo
 meaningful on the map; the assets, capacities, loads, population values, and
 traffic-like relationships are synthetic estimates.
@@ -17,8 +17,8 @@ traffic-like relationships are synthetic estimates.
 
 ## Naming and data limits
 
-Names are generated deterministically with zero-padded numbering, for example
-`Junction 001`, `Hospital 01`, and `Substation 01`. They are synthetic labels,
+Names use synthetic numbering such as `Junction 1`, `Hospital 1`, and
+`Substation 1`. They are synthetic labels,
 not real institution or road names. The dataset does not provide exact
 population figures, observed traffic demand, or engineering failure data.
 
@@ -30,13 +30,14 @@ From the repository root:
 python data/scripts/generate_synthetic.py
 ```
 
-The generator uses a fixed seed and validates graph connectivity and hospital
-reachability before writing the files.
+The generator uses a fixed seed for scenario structure and validates graph
+connectivity and hospital reachability before writing the files. UUIDs are
+generated per run, so regenerated IDs can differ from the checked-in fixtures.
 
 ## Optional OSM road data
 
 The backend includes an opt-in OSMnx exporter for road geometry. It writes a
-separate dataset and never replaces these deterministic fixtures automatically:
+separate dataset and never replaces these checked-in fixtures automatically:
 
 ```bash
 pip install -e 'backend[osm]'

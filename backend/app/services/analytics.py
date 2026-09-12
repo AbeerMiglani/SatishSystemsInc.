@@ -47,8 +47,15 @@ def calculate_centrality(network_id: str, metric: str = "betweenness") -> list[d
             # network identifier out of executable Cypher text.
             node_query = "MATCH (n:Asset {network_id: $network_id}) RETURN id(n) AS id"
             rel_query = """
-            MATCH (s:Asset {network_id: $network_id})-[r]->(t:Asset {network_id: $network_id})
-            RETURN id(s) AS source, id(t) AS target, coalesce(r.weight, 1.0) AS weight
+            MATCH (a:Asset {network_id: $network_id})-[r]-(b:Asset {network_id: $network_id})
+            WHERE id(a) < id(b)
+            WITH id(a) AS source, id(b) AS target, coalesce(r.weight, 1.0) AS weight
+            RETURN source, target, weight
+            UNION
+            MATCH (a:Asset {network_id: $network_id})-[r]-(b:Asset {network_id: $network_id})
+            WHERE id(a) < id(b)
+            WITH id(a) AS source, id(b) AS target, coalesce(r.weight, 1.0) AS weight
+            RETURN target AS source, source AS target, weight
             """
 
             session.run(
@@ -70,20 +77,32 @@ def calculate_centrality(network_id: str, metric: str = "betweenness") -> list[d
             if metric == "betweenness":
                 results = session.run(
                     """
-                    CALL gds.betweenness.stream($graph_name)
+                    CALL gds.betweenness.stream(
+                        $graph_name,
+                        {relationshipWeightProperty: 'weight'}
+                    )
                     YIELD nodeId, score
-                    RETURN gds.util.asNode(nodeId).id AS node_id, score
-                    ORDER BY score DESC
+                    RETURN
+                        gds.util.asNode(nodeId).id AS node_id,
+                        gds.util.asNode(nodeId).name AS display_name,
+                        score
+                    ORDER BY score DESC, node_id ASC
                     """,
                     graph_name=graph_name,
                 ).data()
             else:
                 results = session.run(
                     """
-                    CALL gds.pageRank.stream($graph_name)
+                    CALL gds.pageRank.stream(
+                        $graph_name,
+                        {relationshipWeightProperty: 'weight'}
+                    )
                     YIELD nodeId, score
-                    RETURN gds.util.asNode(nodeId).id AS node_id, score
-                    ORDER BY score DESC
+                    RETURN
+                        gds.util.asNode(nodeId).id AS node_id,
+                        gds.util.asNode(nodeId).name AS display_name,
+                        score
+                    ORDER BY score DESC, node_id ASC
                     """,
                     graph_name=graph_name,
                 ).data()
@@ -99,6 +118,7 @@ def calculate_centrality(network_id: str, metric: str = "betweenness") -> list[d
     for idx, row in enumerate(results):
         ranked_results.append({
             "node_id": row["node_id"],
+            "display_name": row.get("display_name"),
             "metric": metric,
             "score": row["score"],
             "rank": idx + 1,

@@ -122,7 +122,17 @@ def get_recommendations(sim_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Recommendations require a completed simulation")
     nodes = db.query(Node).filter(Node.network_id == sim.network_id).all()
     edges = db.query(Edge).filter(Edge.network_id == sim.network_id).all()
-    recommendations = recommend_interventions(sim, nodes, edges)
+    scenario = (
+        db.query(Scenario)
+        .filter(Scenario.cached_result_id == sim.id, Scenario.network_id == sim.network_id)
+        .first()
+    )
+    recommendations = recommend_interventions(
+        sim,
+        nodes,
+        edges,
+        scenario_modifications=scenario.modifications if scenario else None,
+    )
     return {"simulation_id": sim.id, "recommendations": recommendations}
 
 
