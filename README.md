@@ -205,9 +205,24 @@ truth after completion or reconnect.
 
 ### OSM Ingestion
 
-OSM ingestion is not implemented. The application uses a fully synthetic
-network positioned at Manipal, India coordinates (approximately 120 nodes and
-180 edges). The application does not require network access at runtime.
+Optional OSMnx ingestion is available for road geometry only. Install the
+extra and generate a reviewable, Ripple-compatible dataset with:
+
+```bash
+pip install -e 'backend[osm]'
+python -m app.services.osm_ingestion \
+  --place "Manipal, Karnataka, India" \
+  --output /data/osm \
+  --network-type drive
+```
+
+The importer produces `nodes.geojson`, `edges.json`, and `provenance.json`.
+OSM nodes are labeled as `road_junction` assets with `name_source=osm`;
+capacities, loads, and population exposure remain explicitly estimated.
+Hospitals, utilities, and service areas are not inferred from OSM. The
+synthetic `/data/seed` dataset remains the default and is unaffected when the
+optional dependency is absent. Review generated files before loading them and
+comply with OpenStreetMap's ODbL and usage policies.
 
 This simulator does not provide engineering-grade failure prediction. Traffic
 demand figures are not derived from OSM or another real-world traffic source.
