@@ -32,3 +32,17 @@ python data/scripts/generate_synthetic.py
 
 The generator uses a fixed seed and validates graph connectivity and hospital
 reachability before writing the files.
+
+## Optional OSM road data
+
+The backend includes an opt-in OSMnx exporter for road geometry. It writes a
+separate dataset and never replaces these deterministic fixtures automatically:
+
+```bash
+pip install -e 'backend[osm]'
+python -m app.services.osm_ingestion --place "Manipal, Karnataka, India" --output /data/osm
+```
+
+The OSM output contains road junctions and road links only. Operational
+capacities and population exposure are estimates and must not be presented as
+official infrastructure data.
