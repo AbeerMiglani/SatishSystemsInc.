@@ -6,6 +6,9 @@ from pydantic import UUID4, BaseModel, ConfigDict
 class NodeBase(BaseModel):
     id: UUID4
     name: str
+    display_name: str
+    name_source: str = "synthetic"
+    data_quality: str = "estimated"
     node_type: str
     lat: float
     lng: float
@@ -41,5 +44,7 @@ class NetworkBase(BaseModel):
 
 class CentralityScore(BaseModel):
     node_id: UUID4
+    display_name: str | None = None
+    metric: str = "betweenness"
     score: float
     rank: int

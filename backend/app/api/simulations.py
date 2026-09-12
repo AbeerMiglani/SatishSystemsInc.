@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db.postgres import get_db
-from app.models.network import Network, Node, Scenario, SimulationResult
+from app.models.network import Edge, Network, Node, Scenario, SimulationResult
 from app.security import enforce_rate_limit, require_operator, require_viewer
+from app.schemas.simulation import WaveSchema
 from app.simulation.runner import run_simulation_task
+from app.services.recommendations import recommend_interventions
 
 router = APIRouter(
     prefix="/simulations",
@@ -33,11 +35,6 @@ class SimulationCreate(BaseModel):
         return values
 
 
-class WaveSchema(BaseModel):
-    wave: int
-    failed_node_ids: list[UUID4]
-
-
 class SimulationResponse(BaseModel):
     id: UUID4
     network_id: UUID4
@@ -46,6 +43,11 @@ class SimulationResponse(BaseModel):
     waves: list[WaveSchema]
     total_failed: int
     population_affected_estimate: int
+    population_total: int = 65_000
+    population_affected_percentage: float = 0.0
+    population_overlap_unresolved: bool = True
+    population_estimate_is_capped: bool = False
+    population_impact_method: str = "legacy_node_exposure"
     global_efficiency_before: float | None = None
     global_efficiency_after: float | None = None
     error_message: str | None = None
@@ -109,6 +111,19 @@ def create_simulation(
         raise HTTPException(status_code=503, detail="Simulation queue unavailable")
     
     return sim
+
+
+@router.get("/{sim_id}/recommendations")
+def get_recommendations(sim_id: uuid.UUID, db: Session = Depends(get_db)):
+    sim = db.query(SimulationResult).filter(SimulationResult.id == sim_id).first()
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    if sim.status != "completed":
+        raise HTTPException(status_code=400, detail="Recommendations require a completed simulation")
+    nodes = db.query(Node).filter(Node.network_id == sim.network_id).all()
+    edges = db.query(Edge).filter(Edge.network_id == sim.network_id).all()
+    recommendations = recommend_interventions(sim, nodes, edges)
+    return {"simulation_id": sim.id, "recommendations": recommendations}
 
 
 @router.get("/{sim_id}", response_model=SimulationResponse)
