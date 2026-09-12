@@ -37,7 +37,7 @@ def _authenticate(value: str | None) -> Principal:
 
     for configured_key, role in settings.api_keys.items():
         if secrets.compare_digest(key, configured_key):
-            fingerprint = hashlib.blake2b(configured_key.encode("utf-8"), digest_size=6).hexdigest()
+            fingerprint = f"{configured_key[:4]}***{configured_key[-4:]}" if len(configured_key) >= 8 else "***"
             return Principal(key_fingerprint=fingerprint, role=role)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
